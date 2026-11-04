@@ -1,4 +1,23 @@
+name: hal_ti
 build:
   cmake: .
   settings:
     dts_root: .
+blobs:
+  # TI BLE5-Stack for CC13x2x7/CC26x2x7 (ROM build, BLE ROM R2)
+  - path: simplelink_lpf2/ble5stack/cc13x2r1/OneLib.a
+    sha256: d745afcf96d91d008c391afedb7cfb15efe844aa48e887cdfb92b3ff1efdd18e
+    type: lib
+    version: "8.33.00.16"
+    license-path: simplelink_lpf2/LICENSES/LicenseRef-TI-SimpleLink-SDK.txt
+    url: https://github.com/TexasInstruments/simplelink-lowpower-f2-sdk/raw/lpf2-8.33.00.16/source/ti/ble5stack/libraries/cc13x2r1/OneLib.a
+    description: "TI BLE5-Stack library (Link Layer, HCI) for CC13x2x7/CC26x2x7"
+    doc-url: https://github.com/TexasInstruments/simplelink-lowpower-f2-sdk
+  - path: simplelink_lpf2/ble5stack/cc13x2r1/ble_r2.symbols
+    sha256: 58b8a8a23b1a93adac564d80b1285983a1b95f6738d51b894bdc3971f933474f
+    type: lib
+    version: "8.33.00.16"
+    license-path: simplelink_lpf2/LICENSES/LicenseRef-TI-SimpleLink-SDK.txt
+    url: https://github.com/TexasInstruments/simplelink-lowpower-f2-sdk/raw/lpf2-8.33.00.16/source/ti/ble5stack/libraries/cc13x2r1/ble_r2.symbols
+    description: "TI BLE5-Stack ROM (R2) symbol addresses for CC13x2x7/CC26x2x7"
+    doc-url: https://github.com/TexasInstruments/simplelink-lowpower-f2-sdk
