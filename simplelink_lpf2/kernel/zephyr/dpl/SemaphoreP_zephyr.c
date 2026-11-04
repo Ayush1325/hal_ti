@@ -60,6 +60,15 @@ static k_timeout_t dpl_convert_timeout(uint32_t timeout)
 }
 
 
+/*
+ * Callers built with -fshort-enums (TI BLE5-Stack) store mode in one byte.
+ * All modes fit in that byte, so only read the low byte.
+ */
+static inline uint8_t SemaphoreP_paramsMode(const SemaphoreP_Params *params)
+{
+	return *(const uint8_t *)&params->mode;
+}
+
 SemaphoreP_Handle SemaphoreP_create(unsigned int count,
 				    SemaphoreP_Params *params)
 {
@@ -67,7 +76,7 @@ SemaphoreP_Handle SemaphoreP_create(unsigned int count,
 	struct k_sem *sem;
 
 	if (params) {
-		limit = (params->mode == SemaphoreP_Mode_BINARY) ?
+		limit = (SemaphoreP_paramsMode(params) == SemaphoreP_Mode_BINARY) ?
 			1 : UINT_MAX;
 	}
 
@@ -142,7 +151,7 @@ SemaphoreP_Handle SemaphoreP_construct(SemaphoreP_Struct *handle,
     struct k_sem *sem;
 
     if (params) {
-        limit = (params->mode == SemaphoreP_Mode_BINARY) ?
+        limit = (SemaphoreP_paramsMode(params) == SemaphoreP_Mode_BINARY) ?
             1 : UINT_MAX;
     }
 
