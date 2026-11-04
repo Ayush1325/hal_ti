@@ -9,7 +9,18 @@
 #include <kernel/zephyr/dpl/dpl.h>
 #include <ti/drivers/dpl/ClockP.h>
 
-#define CLOCKP_TICK_PERIOD (USEC_PER_SEC / CONFIG_SYS_CLOCK_TICKS_PER_SEC);
+/*
+ * ClockP ticks are 10 us, independent of the Zephyr system tick, as on the
+ * TI-RTOS based SimpleLink platforms. TI code such as the BLE5-Stack ICall
+ * layer relies on this tick period.
+ */
+#define CLOCKP_TICK_PERIOD 10U
+#define CLOCKP_TICK_FREQ   (USEC_PER_SEC / CLOCKP_TICK_PERIOD)
+
+static inline k_timeout_t ClockP_ticksToTimeout(uint32_t ticks)
+{
+	return K_USEC((uint64_t)ticks * CLOCKP_TICK_PERIOD);
+}
 
 /* 
  * ClockP_STRUCT_SIZE in ClockP.h must be updated to match the size of this
@@ -19,8 +30,8 @@ typedef struct _ClockP_Obj {
 	struct k_timer timer;
 	ClockP_Fxn clock_fxn;
 	uintptr_t arg;
-	uint32_t timeout; /* in sys clock uptime ticks */
-	uint32_t period; /* in sys clock uptime ticks */
+	uint32_t timeout; /* in ClockP ticks */
+	uint32_t period; /* in ClockP ticks */
 	bool active;
 } ClockP_Obj;
 
@@ -39,7 +50,7 @@ static void expiry_fxn(struct k_timer *timer_id)
 
 /*
  *  ======== ClockP_construct ========
- *  @param timeout in sys clock uptime ticks
+ *  @param timeout in ClockP ticks
  */
 ClockP_Handle ClockP_construct(ClockP_Struct *handle, ClockP_Fxn clockFxn,
         uint32_t timeout, ClockP_Params *params)
@@ -75,15 +86,11 @@ ClockP_Handle ClockP_construct(ClockP_Struct *handle, ClockP_Fxn clockFxn,
  */
 inline uint32_t ClockP_getSystemTickFreq()
 {
-   return CONFIG_SYS_CLOCK_TICKS_PER_SEC;
+   return CLOCKP_TICK_FREQ;
 }
 
 /*
  *  ======== ClockP_getSystemTickPeriod ========
- *
- *  This implementation rounds the system tick period down by ~17250ppm
- *  which makes it useless for any precision timing. Use
- *  (timeUs * ClockP_getSystemTickFreq() for these purposes instead.
  */
 inline uint32_t ClockP_getSystemTickPeriod()
 {
@@ -93,7 +100,7 @@ inline uint32_t ClockP_getSystemTickPeriod()
 uint32_t ClockP_getSystemTicks()
 {
 	/* may wrap */
-	return k_uptime_ticks();
+	return (uint32_t)(k_ticks_to_us_floor64(k_uptime_ticks()) / CLOCKP_TICK_PERIOD);
 }
 
 /*
@@ -108,7 +115,7 @@ void ClockP_Params_init(ClockP_Params *params)
 
 /*
  *  ======== ClockP_setTimeout ========
- *  @param timeout in sys clock uptime ticks
+ *  @param timeout in ClockP ticks
  */
 void ClockP_setTimeout(ClockP_Handle handle, uint32_t timeout)
 {
@@ -124,7 +131,8 @@ void ClockP_start(ClockP_Handle handle)
 {
 	ClockP_Obj *obj = (ClockP_Obj *)handle;
 
-	k_timer_start(&obj->timer, K_TICKS(obj->timeout), K_TICKS(obj->period));
+	k_timer_start(&obj->timer, ClockP_ticksToTimeout(obj->timeout),
+		      (obj->period != 0U) ? ClockP_ticksToTimeout(obj->period) : K_NO_WAIT);
 	obj->active = true;
 }
 
@@ -152,7 +160,12 @@ void ClockP_usleep(uint32_t usec)
  */
 uint32_t ClockP_getTimeout(ClockP_Handle handle) {
     ClockP_Obj *obj = (ClockP_Obj *)handle;
-    return obj->active ? k_timer_remaining_ticks(&obj->timer) : obj->timeout;
+    if (!obj->active) {
+        return obj->timeout;
+    }
+
+    return (uint32_t)(k_ticks_to_us_ceil64(k_timer_remaining_ticks(&obj->timer)) /
+                      CLOCKP_TICK_PERIOD);
 }
 
 /*

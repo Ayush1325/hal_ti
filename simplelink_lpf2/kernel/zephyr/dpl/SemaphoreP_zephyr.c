@@ -7,6 +7,7 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/__assert.h>
 #include <kernel/zephyr/dpl/dpl.h>
+#include <ti/drivers/dpl/ClockP.h>
 #include <ti/drivers/dpl/SemaphoreP.h>
 
 /*
@@ -45,7 +46,7 @@ static SemaphoreP_Status dpl_sem_pool_free(struct k_sem *sem)
 	return SemaphoreP_OK;
 }
 
-/* timeout comes in and out in ticks */
+/* timeout comes in ClockP ticks of 10 us (see ClockP_zephyr.c) */
 static k_timeout_t dpl_convert_timeout(uint32_t timeout)
 {
 	switch(timeout) {
@@ -54,7 +55,7 @@ static k_timeout_t dpl_convert_timeout(uint32_t timeout)
 	case SemaphoreP_WAIT_FOREVER:
 		return K_FOREVER;
 	default:
-		return K_TICKS(timeout);
+		return K_USEC((uint64_t)timeout * ClockP_getSystemTickPeriod());
 	}
 }
 
