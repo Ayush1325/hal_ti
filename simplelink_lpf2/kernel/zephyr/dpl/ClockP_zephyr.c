@@ -5,6 +5,8 @@
  */
 
 #include <zephyr/kernel.h>
+#include <zephyr/sys/__assert.h>
+#include <kernel/zephyr/dpl/dpl.h>
 #include <ti/drivers/dpl/ClockP.h>
 
 #define CLOCKP_TICK_PERIOD (USEC_PER_SEC / CONFIG_SYS_CLOCK_TICKS_PER_SEC);
@@ -172,4 +174,33 @@ void ClockP_destruct(ClockP_Struct *clockP)
 	obj->active = false;
 
 	k_timer_stop(&obj->timer);
+}
+
+#define DPL_MAX_CLOCKS 4 /* ICall timers of the BLE5-Stack */
+K_MEM_SLAB_DEFINE(clock_slab, sizeof(ClockP_Obj), DPL_MAX_CLOCKS, MEM_ALIGN);
+
+/*
+ *  ======== ClockP_create ========
+ */
+ClockP_Handle ClockP_create(ClockP_Fxn clockFxn, uint32_t timeout, ClockP_Params *params)
+{
+	ClockP_Obj *obj;
+
+	if (k_mem_slab_alloc(&clock_slab, (void **)&obj, K_NO_WAIT) != 0) {
+		__ASSERT(false, "ClockP_create failed\r\n");
+		return NULL;
+	}
+
+	return ClockP_construct((ClockP_Struct *)obj, clockFxn, timeout, params);
+}
+
+/*
+ *  ======== ClockP_delete ========
+ */
+void ClockP_delete(ClockP_Handle handle)
+{
+	ClockP_Obj *obj = (ClockP_Obj *)handle;
+
+	k_timer_stop(&obj->timer);
+	k_mem_slab_free(&clock_slab, (void *)obj);
 }
