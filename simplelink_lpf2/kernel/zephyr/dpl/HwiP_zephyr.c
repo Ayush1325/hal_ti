@@ -137,56 +137,24 @@ typedef struct _HwiP_Obj {
     struct sl_isr_args * cb;
 } HwiP_Obj;
 
-static struct sl_isr_args sl_OSC_COMB_cb = {NULL, 0};
-static struct sl_isr_args sl_AUX_COMB_cb = {NULL, 0};
-static struct sl_isr_args sl_RFC_HW_COMB_cb = {NULL, 0};
-static struct sl_isr_args sl_RFC_CPE_0_cb = {NULL, 0};
-static struct sl_isr_args sl_SWEV0_cb = {NULL, 0};
-static struct sl_isr_args sl_AUX_SWEV0_cb = {NULL, 0};
-static struct sl_isr_args sl_AUX_SWEV1_cb = {NULL, 0};
+/* Callbacks of all peripheral interrupts, indexed by IRQ number */
+static struct sl_isr_args sl_isr_cbs[NUM_INTERRUPTS - 16];
 
 /*
- *  ======== HwiP_construct ========
+ * Convert a TI interrupt priority to a Zephyr IRQ priority.
+ *
+ * Priority expected is either:
+ *    INT_PRI_LEVEL1 to INT_PRI_LEVEL7,
+ *    or ~0 or 255 (meaning lowest priority)
+ *    ~0 and 255 are meant to be the same as INT_PRI_LEVEL7.
+ *    For ~0 or 255, we want 7; but Zephyr IRQ_CONNECT adds +1
+ *    to reserve INT_PRI_LEVEL0,
+ *    so we pass 6 for those TI drivers passing prio = ~0.
  */
-HwiP_Handle HwiP_construct(HwiP_Struct *handle, int interruptNum,
-                           HwiP_Fxn hwiFxn, HwiP_Params *params)
+static uint8_t sl_irq_priority(uint32_t priority)
 {
-	HwiP_Obj *obj = (HwiP_Obj *)handle;
-	uintptr_t arg = 0;
-	uint8_t priority = INT_PRI_LEVEL7; /* default to lowest priority */
-	bool enable = true;
-	
-	if (handle == NULL) {
-		return NULL;
-	}
+	priority &= 0xFF;
 
-	if (params) {
-		priority = params->priority;
-		arg = params->arg;
-		enable = params->enableInt;
-	}
-
-	/*
-	 * Currently only support INT_OSC_COMB, INT_AUX_COMB, INT_SWEV0
-	 */
-	__ASSERT(INT_OSC_COMB == interruptNum || INT_AUX_COMB == interruptNum
-		|| INT_RFC_HW_COMB == interruptNum
-		|| INT_RFC_CPE_0 == interruptNum
-		|| INT_SWEV0 == interruptNum
-		|| INT_AUX_SWEV0 == interruptNum
-		|| INT_AUX_SWEV1 == interruptNum,
-		 "Unexpected interruptNum: %d\r\n",
-		 interruptNum);
-
-	/*
-	 * Priority expected is either:
-	 *    INT_PRI_LEVEL1 to INT_PRI_LEVEL7,
-	 *    or ~0 or 255 (meaning lowest priority)
-	 *    ~0 and 255 are meant to be the same as INT_PRI_LEVEL7.
-	 *    For ~0 or 255, we want 7; but Zephyr IRQ_CONNECT adds +1
-	 *    to reserve INT_PRI_LEVEL0,
-	 *    so we pass 6 for those TI drivers passing prio = ~0.
-	 */
 	__ASSERT((INT_PRI_LEVEL7 == priority) ||
 		(INT_PRI_LEVEL6 == priority) ||
 		(INT_PRI_LEVEL5 == priority) ||
@@ -202,55 +170,43 @@ HwiP_Handle HwiP_construct(HwiP_Struct *handle, int interruptNum,
 		priority = INT_PRI_LEVEL7;
 	}
 
-	/* The priority for IRQ_CONNECT is encoded in the top 3 bits */ 
-	priority = (priority >> 5) - 1;
+	/* The priority for IRQ_CONNECT is encoded in the top 3 bits */
+	return (priority >> 5) - 1;
+}
 
-	switch(interruptNum) {
-	case INT_RFC_CPE_0:
-		sl_RFC_CPE_0_cb.cb = hwiFxn;
-		sl_RFC_CPE_0_cb.arg = arg;
-		obj->cb = &sl_RFC_CPE_0_cb;
-		irq_connect_dynamic(INT_RFC_CPE_0 - 16, priority, sl_isr, &sl_RFC_CPE_0_cb, 0);
-		break;
-	case INT_RFC_HW_COMB:
-		sl_RFC_HW_COMB_cb.cb = hwiFxn;
-		sl_RFC_HW_COMB_cb.arg = arg;
-		obj->cb = &sl_RFC_HW_COMB_cb;
-		irq_connect_dynamic(INT_RFC_HW_COMB - 16, priority, sl_isr, &sl_RFC_HW_COMB_cb, 0);
-		break;
-	case INT_OSC_COMB:
-		sl_OSC_COMB_cb.cb = hwiFxn;
-		sl_OSC_COMB_cb.arg = arg;
-		obj->cb = &sl_OSC_COMB_cb;
-		irq_connect_dynamic(INT_OSC_COMB - 16, priority, sl_isr, &sl_OSC_COMB_cb, 0);
-		break;
-	case INT_AUX_COMB:
-		sl_AUX_COMB_cb.cb = hwiFxn;
-		sl_AUX_COMB_cb.arg = arg;
-		obj->cb = &sl_AUX_COMB_cb;
-		irq_connect_dynamic(INT_AUX_COMB - 16, priority, sl_isr, &sl_AUX_COMB_cb, 0);
-		break;
-	case INT_SWEV0:
-		sl_SWEV0_cb.cb = hwiFxn;
-		sl_SWEV0_cb.arg = arg;
-		obj->cb = &sl_SWEV0_cb;
-		irq_connect_dynamic(INT_SWEV0 - 16, priority, sl_isr, &sl_SWEV0_cb, 0);
-		break;
-	case INT_AUX_SWEV0:
-		sl_AUX_SWEV0_cb.cb = hwiFxn;
-		sl_AUX_SWEV0_cb.arg = arg;
-		obj->cb = &sl_AUX_SWEV0_cb;
-		irq_connect_dynamic(INT_AUX_SWEV0 - 16, priority, sl_isr, &sl_AUX_SWEV0_cb, 0);
-		break;
-	case INT_AUX_SWEV1:
-		sl_AUX_SWEV1_cb.cb = hwiFxn;
-		sl_AUX_SWEV1_cb.arg = arg;
-		obj->cb = &sl_AUX_SWEV1_cb;
-		irq_connect_dynamic(INT_AUX_SWEV1 - 16, priority, sl_isr, &sl_AUX_SWEV1_cb, 0);
-		break;
-	default:
-		return(NULL);
+/*
+ *  ======== HwiP_construct ========
+ */
+HwiP_Handle HwiP_construct(HwiP_Struct *handle, int interruptNum,
+                           HwiP_Fxn hwiFxn, HwiP_Params *params)
+{
+	HwiP_Obj *obj = (HwiP_Obj *)handle;
+	struct sl_isr_args *cb;
+	uintptr_t arg = 0;
+	uint32_t priority = INT_PRI_LEVEL7; /* default to lowest priority */
+	bool enable = true;
+
+	if (handle == NULL) {
+		return NULL;
 	}
+
+	if ((interruptNum < 16) || (interruptNum >= NUM_INTERRUPTS)) {
+		__ASSERT(false, "Unexpected interruptNum: %d\r\n", interruptNum);
+		return NULL;
+	}
+
+	if (params) {
+		priority = params->priority;
+		arg = params->arg;
+		enable = params->enableInt;
+	}
+
+	cb = &sl_isr_cbs[interruptNum - 16];
+	cb->cb = hwiFxn;
+	cb->arg = arg;
+	obj->cb = cb;
+	irq_connect_dynamic(interruptNum - 16, sl_irq_priority(priority), sl_isr, cb, 0);
+
 	if (enable)
 	{
 		irq_enable(interruptNum - 16);
@@ -307,6 +263,22 @@ void HwiP_restore(uintptr_t key)
 void HwiP_post(int interruptNum)
 {
 	IntPendSet((uint32_t)interruptNum);
+}
+
+/*
+ *  ======== HwiP_setPriority ========
+ */
+void HwiP_setPriority(int interruptNum, uint32_t priority)
+{
+	z_arm_irq_priority_set(interruptNum - 16, sl_irq_priority(priority), 0);
+}
+
+/*
+ *  ======== HwiP_inISR ========
+ */
+bool HwiP_inISR(void)
+{
+	return k_is_in_isr();
 }
 
 void HwiP_setFunc(HwiP_Handle hwiP, HwiP_Fxn fxn, uintptr_t arg)
