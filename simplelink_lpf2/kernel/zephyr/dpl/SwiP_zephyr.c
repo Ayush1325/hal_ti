@@ -53,6 +53,7 @@ static volatile SwiP_LockState SwiP_lockState;
 static volatile uint32_t SwiP_currentTrigger;
 static volatile bool SwiP_schedulerRunning;
 static volatile bool SwiP_initialized = false;
+static volatile bool SwiP_running;
 static HwiP_Struct SwiP_hwiStruct;
 static QueueP_Obj SwiP_readyList[NUMPRI];
 
@@ -203,7 +204,9 @@ void SwiP_dispatch(uintptr_t hwiKey)
 
         /* run the swi with interrupts enabled */
         HwiP_restore(hwiKey);
+        SwiP_running = true;
         swi->fxn(swi->params.arg0, swi->params.arg1);
+        SwiP_running = false;
         hwiKey = HwiP_disable();
 
         /* If the swi didn't get re-posted, set it to idle now */
@@ -292,6 +295,31 @@ void SwiP_restore(uintptr_t key)
         /* Set the scheduler into running state to avoid double posts */
         SwiP_schedulerRunning = true;
     }
+
+    HwiP_restore(hwiKey);
+}
+
+/*
+ *  ======== SwiP_inISR ========
+ */
+bool SwiP_inISR(void)
+{
+    return SwiP_running;
+}
+
+/*
+ *  ======== SwiP_setPriority ========
+ */
+void SwiP_setPriority(SwiP_Handle handle, uint32_t priority)
+{
+    SwiP_Obj *swi = (SwiP_Obj *)handle;
+    uintptr_t hwiKey = HwiP_disable();
+
+    if (priority >= NUMPRI) {
+        priority = NUMPRI - 1;
+    }
+
+    swi->params.priority = priority;
 
     HwiP_restore(hwiKey);
 }
