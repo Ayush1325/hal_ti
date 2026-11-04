@@ -28,7 +28,6 @@ if(CONFIG_HAS_CC13X2X7_CC26X2X7_SDK)
 	source/ti/drivers/power/PowerCC26X2_calibrateRCOSC.c
 	source/ti/drivers/power/PowerCC26X2_calibrateRCOSC_helpers.c
 	source/ti/drivers/utils/List.c
-	source/ti/drivers/rf/RFCC26X2_multiMode.c
 
 	# DPL
 	kernel/zephyr/dpl/ClockP_zephyr.c
@@ -55,4 +54,19 @@ if(CONFIG_HAS_CC13X2X7_CC26X2X7_SDK)
   )
 
   zephyr_library_sources_ifdef(CONFIG_ADC_CC13XX_CC26XX source/ti/devices/cc13x2x7_cc26x2x7/driverlib/aux_adc.c)
+
+  if(CONFIG_BT_TI_CC13XX_CC26XX)
+    zephyr_include_directories(kernel/zephyr/ble/include)
+    if(CONFIG_BUILD_ONLY_NO_BLOBS)
+      # The stack cannot be linked without its blobs, only provide its interface
+      zephyr_library_sources(kernel/zephyr/ble/ti_ble_stubs.c)
+    else()
+      # Zephyr side of the BLE5-Stack OS shim, built with the default enum size
+      zephyr_library_sources(kernel/zephyr/ble/shim/ti_ble_shim.c)
+      include(ble5stack.cmake)
+    endif()
+  else()
+    # With BLE, the RF driver is built as part of the BLE5-Stack library
+    zephyr_library_sources(source/ti/drivers/rf/RFCC26X2_multiMode.c)
+  endif()
 endif()
