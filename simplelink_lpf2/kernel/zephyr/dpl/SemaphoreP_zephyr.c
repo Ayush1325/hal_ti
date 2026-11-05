@@ -41,7 +41,7 @@ static struct k_sem *dpl_sem_pool_alloc()
 
 static SemaphoreP_Status dpl_sem_pool_free(struct k_sem *sem)
 {
-	k_mem_slab_free(&sem_slab, (void **)&sem);
+	k_mem_slab_free(&sem_slab, sem);
 
 	return SemaphoreP_OK;
 }
