@@ -58,6 +58,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include <zephyr/kernel.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -69,8 +71,9 @@ extern "C" {
  *  BIOS 6.x: 40
  *  BIOS 7.x: 36
  *  FreeRTOS: 68
+ *  Zephyr:   k_timer and five words, see ClockP_Obj in ClockP_zephyr.c
  */
-#define ClockP_STRUCT_SIZE (68)
+#define ClockP_STRUCT_SIZE (sizeof(struct k_timer) + (5 * sizeof(uint32_t)))
 
 /*!
  *  @brief    ClockP structure.
@@ -80,7 +83,7 @@ extern "C" {
  */
 typedef union ClockP_Struct
 {
-    uint32_t dummy; /*!< Align object */
+    struct k_timer dummy; /*!< Align object */
     uint8_t data[ClockP_STRUCT_SIZE];
 } ClockP_Struct;
 

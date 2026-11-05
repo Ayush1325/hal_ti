@@ -35,6 +35,10 @@ typedef struct _ClockP_Obj {
 	bool active;
 } ClockP_Obj;
 
+BUILD_ASSERT(sizeof(ClockP_Obj) <= sizeof(ClockP_Struct), "ClockP_Struct is too small");
+BUILD_ASSERT(__alignof__(ClockP_Obj) <= __alignof__(ClockP_Struct),
+	     "ClockP_Struct is not aligned for ClockP_Obj");
+
 static ClockP_Params ClockP_defaultParams = {
     .startFlag = false,
     .period = 0,
