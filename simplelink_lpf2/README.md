@@ -40,6 +40,21 @@ copy_src ${SDK}/source/ti/drivers ${OUT}/source/ti/
 copy_src ${SDK}/source/ti/log ${OUT}/source/ti/
 copy_src ${SDK}/source/ti/devices/DeviceFamily.h ${OUT}/source/ti/devices/
 copy_src ${SDK}/source/ti/devices/cc13x2x7_cc26x2x7 ${OUT}/source/ti/devices/
+
+# BLE5-Stack sources (OneLib.a and ble_r2.symbols are fetched as west blobs,
+# see zephyr/module.yml)
+mkdir -p ${OUT}/source/ti/ble5stack ${OUT}/source/ti/common/cc26xx
+for dir in common config controller hal heapmgr host icall inc npi osal rom services; do
+    rsync -amv --include='*/' --include='*.c' --include='*.h' --include='*.opt' --exclude='*' \
+        ${SDK}/source/ti/ble5stack/${dir} ${OUT}/source/ti/ble5stack/
+done
+copy_src ${SDK}/source/ti/common/nv ${OUT}/source/ti/common/
+copy_src ${SDK}/source/ti/common/cc26xx/ecc ${OUT}/source/ti/common/cc26xx/
+
+# Pre-generated SysConfig BLE radio settings for CC1352P7
+mkdir -p ${OUT}/source/ti/ble5stack/boards/cc1352p7
+cp ${SDK}/source/ti/ti_sidewalk/apps/ti/sid_demo/app_source/cc1352p7/sysconfig/ble_ti_radio_config.c \
+    ${OUT}/source/ti/ble5stack/boards/cc1352p7/
 ```
 
 Then re-apply the Zephyr-specific changes. Look for the `Zephyr` keyword
